@@ -29,7 +29,10 @@ pub fn random_utxos(num_utxos: usize) -> HashMap<sdk_types::OutPoint, Output> {
         .collect()
 }
 
-pub fn random_transaction(num_inputs: usize, num_outputs: usize) -> AuthorizedTransaction {
+pub fn random_transaction(
+    num_inputs: usize,
+    num_outputs: usize,
+) -> AuthorizedTransaction {
     use ed25519_dalek::Keypair;
     use rand::rngs::OsRng;
     use rand::Rng;
@@ -47,7 +50,8 @@ pub fn random_transaction(num_inputs: usize, num_outputs: usize) -> AuthorizedTr
     let authorizations = (0..num_inputs)
         .map(|_| {
             let keypair = Keypair::generate(&mut csprng);
-            let serialized_transaction = bincode::serialize(&transaction).unwrap();
+            let serialized_transaction =
+                bincode::serialize(&transaction).unwrap();
             let signature = keypair.sign(&serialized_transaction);
             Authorization {
                 public_key: keypair.public,
@@ -100,7 +104,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     const NUM_TRANSACTIONS: usize = 600;
     const NUM_COINBASE_OUTPUTS: usize = 1;
-    let body = random_body(&env, &state, NUM_TRANSACTIONS, NUM_COINBASE_OUTPUTS).unwrap();
+    let body =
+        random_body(&env, &state, NUM_TRANSACTIONS, NUM_COINBASE_OUTPUTS)
+            .unwrap();
     c.bench_function("validate_block", |b| {
         b.iter(|| {
             let txn = env.read_txn().unwrap();
@@ -114,7 +120,8 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
 fn new_env() -> Result<heed::Env> {
-    let env_path = project_root::get_project_root()?.join("target/bench_state.mdb");
+    let env_path =
+        project_root::get_project_root()?.join("target/bench_state.mdb");
     // let _ = std::fs::remove_dir_all(&env_path);
     std::fs::create_dir_all(&env_path).unwrap();
     let env = heed::EnvOpenOptions::new()

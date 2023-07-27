@@ -71,7 +71,11 @@ where
         let state = plain_state::State::new(&env)?;
         let archive = plain_archive::Archive::new(&env)?;
         let mempool = plain_mempool::MemPool::new(&env)?;
-        let drivechain = plain_drivechain::Drivechain::new(THIS_SIDECHAIN, main_host, main_port)?;
+        let drivechain = plain_drivechain::Drivechain::new(
+            THIS_SIDECHAIN,
+            main_host,
+            main_port,
+        )?;
         let net = plain_net::Net::new(bind_addr)?;
         let custom_state = State::new(&env)?;
         Ok(Self {
@@ -100,7 +104,8 @@ where
         txn: &RoTxn,
         transaction: &AuthorizedTransaction<A, C>,
     ) -> Result<u64, Error> {
-        let filled_transaction = self.state.fill_transaction(txn, &transaction.transaction)?;
+        let filled_transaction =
+            self.state.fill_transaction(txn, &transaction.transaction)?;
         for (authorization, spent_utxo) in transaction
             .authorizations
             .iter()
@@ -113,8 +118,11 @@ where
         if A::verify_transaction(transaction).is_err() {
             return Err(plain_state::Error::AuthorizationError.into());
         }
-        self.custom_state
-            .validate_filled_transaction(txn, &self.state, &filled_transaction)?;
+        self.custom_state.validate_filled_transaction(
+            txn,
+            &self.state,
+            &filled_transaction,
+        )?;
         let fee = self
             .state
             .validate_filled_transaction(&filled_transaction)?;
@@ -140,7 +148,10 @@ where
         Ok(())
     }
 
-    pub fn get_spent_utxos(&self, outpoints: &[OutPoint]) -> Result<Vec<OutPoint>, Error> {
+    pub fn get_spent_utxos(
+        &self,
+        outpoints: &[OutPoint],
+    ) -> Result<Vec<OutPoint>, Error> {
         let txn = self.env.read_txn()?;
         let mut spent = vec![];
         for outpoint in outpoints {
@@ -171,7 +182,8 @@ where
         let mut spent_utxos = HashSet::new();
         for transaction in &transactions {
             dbg!(&spent_utxos);
-            let inputs: HashSet<_> = transaction.transaction.inputs.iter().copied().collect();
+            let inputs: HashSet<_> =
+                transaction.transaction.inputs.iter().copied().collect();
             if !spent_utxos.is_disjoint(&inputs) {
                 println!("UTXO double spent");
                 self.mempool
@@ -205,12 +217,18 @@ where
         Ok((returned_transactions, fee))
     }
 
-    pub fn get_pending_withdrawal_bundle(&self) -> Result<Option<WithdrawalBundle<C>>, Error> {
+    pub fn get_pending_withdrawal_bundle(
+        &self,
+    ) -> Result<Option<WithdrawalBundle<C>>, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.state.get_pending_withdrawal_bundle(&txn)?)
     }
 
-    pub async fn submit_block(&self, header: &Header, body: &Body<A, C>) -> Result<(), Error> {
+    pub async fn submit_block(
+        &self,
+        header: &Header,
+        body: &Body<A, C>,
+    ) -> Result<(), Error> {
         let last_deposit_block_hash = {
             let txn = self.env.read_txn()?;
             self.state.get_last_deposit_block_hash(&txn)?
@@ -219,7 +237,10 @@ where
         {
             let two_way_peg_data = self
                 .drivechain
-                .get_two_way_peg_data(header.prev_main_hash, last_deposit_block_hash)
+                .get_two_way_peg_data(
+                    header.prev_main_hash,
+                    last_deposit_block_hash,
+                )
                 .await?;
             let mut txn = self.env.write_txn()?;
             self.state.validate_body(&txn, &body)?;
@@ -228,8 +249,11 @@ where
             self.custom_state
                 .connect_body(&mut txn, &self.state, &body)?;
             let height = self.archive.get_height(&txn)?;
-            self.state
-                .connect_two_way_peg_data(&mut txn, &two_way_peg_data, height)?;
+            self.state.connect_two_way_peg_data(
+                &mut txn,
+                &two_way_peg_data,
+                height,
+            )?;
             bundle = self.state.get_pending_withdrawal_bundle(&txn)?;
             self.archive.append_header(&mut txn, &header)?;
             self.archive.put_body(&mut txn, &header, &body)?;
@@ -278,7 +302,10 @@ where
         Ok(())
     }
 
-    pub async fn heart_beat_listen(&self, peer: &plain_net::Peer) -> Result<(), Error> {
+    pub async fn heart_beat_listen(
+        &self,
+        peer: &plain_net::Peer,
+    ) -> Result<(), Error> {
         let message = match peer.connection.read_datagram().await {
             Ok(message) => message,
             Err(err) => {
@@ -297,7 +324,10 @@ where
         Ok(())
     }
 
-    pub async fn peer_listen(&self, peer: &plain_net::Peer) -> Result<(), Error> {
+    pub async fn peer_listen(
+        &self,
+        peer: &plain_net::Peer,
+    ) -> Result<(), Error> {
         let (mut send, mut recv) = peer
             .connection
             .accept_bi()
@@ -318,7 +348,9 @@ where
                     )
                 };
                 let response = match (header, body) {
-                    (Some(header), Some(body)) => Response::Block { header, body },
+                    (Some(header), Some(body)) => {
+                        Response::Block { header, body }
+                    }
                     (_, _) => Response::NoBlock,
                 };
                 let response = bincode::serialize(&response)?;
@@ -344,12 +376,17 @@ where
                     Ok(_) => {
                         {
                             let mut txn = self.env.write_txn()?;
-                            println!("adding transaction to mempool: {:?}", &transaction);
+                            println!(
+                                "adding transaction to mempool: {:?}",
+                                &transaction
+                            );
                             self.mempool.put(&mut txn, &transaction)?;
                             txn.commit()?;
                         }
                         for peer0 in self.net.peers.read().await.values() {
-                            if peer0.connection.stable_id() == peer.connection.stable_id() {
+                            if peer0.connection.stable_id()
+                                == peer.connection.stable_id()
+                            {
                                 continue;
                             }
                             peer0
@@ -379,13 +416,17 @@ where
                 let incoming_conn = node.net.server.accept().await.unwrap();
                 let connection = incoming_conn.await.unwrap();
                 for peer in node.net.peers.read().await.values() {
-                    if peer.connection.remote_address() == connection.remote_address() {
+                    if peer.connection.remote_address()
+                        == connection.remote_address()
+                    {
                         println!(
                             "already connected to {} refusing duplicate connection",
                             connection.remote_address()
                         );
-                        connection
-                            .close(plain_net::quinn::VarInt::from_u32(1), b"already connected");
+                        connection.close(
+                            plain_net::quinn::VarInt::from_u32(1),
+                            b"already connected",
+                        );
                     }
                 }
                 if connection.close_reason().is_some() {
@@ -462,13 +503,17 @@ where
                         };
                         if state.block_height > height {
                             let response = peer
-                                .request(&Request::GetBlock { height: height + 1 })
+                                .request(&Request::GetBlock {
+                                    height: height + 1,
+                                })
                                 .await
                                 .unwrap();
                             match response {
                                 Response::Block { header, body } => {
                                     println!("got new header {:?}", &header);
-                                    node.submit_block(&header, &body).await.unwrap();
+                                    node.submit_block(&header, &body)
+                                        .await
+                                        .unwrap();
                                 }
                                 Response::NoBlock => {}
                                 Response::TransactionAccepted => {}

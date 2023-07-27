@@ -14,7 +14,11 @@ pub struct Miner<A, C> {
 }
 
 impl<A: Clone, C: Clone + GetValue + Serialize> Miner<A, C> {
-    pub fn new(sidechain_number: u32, host: &str, port: u32) -> Result<Self, Error> {
+    pub fn new(
+        sidechain_number: u32,
+        host: &str,
+        port: u32,
+    ) -> Result<Self, Error> {
         let drivechain = Drivechain::new(sidechain_number, host, port)?;
         Ok(Self {
             drivechain,
@@ -54,14 +58,18 @@ impl<A: Clone, C: Clone + GetValue + Serialize> Miner<A, C> {
             )
             .await
             .map_err(plain_drivechain::Error::from)?;
-        bitcoin::Txid::from_str(value["txid"]["txid"].as_str().ok_or(Error::InvalidJson)?)
-            .map_err(plain_drivechain::Error::from)?;
+        bitcoin::Txid::from_str(
+            value["txid"]["txid"].as_str().ok_or(Error::InvalidJson)?,
+        )
+        .map_err(plain_drivechain::Error::from)?;
         assert_eq!(header.merkle_root, body.compute_merkle_root());
         self.block = Some((header, body));
         Ok(())
     }
 
-    pub async fn confirm_bmm(&mut self) -> Result<Option<(Header, Body<A, C>)>, Error> {
+    pub async fn confirm_bmm(
+        &mut self,
+    ) -> Result<Option<(Header, Body<A, C>)>, Error> {
         if let Some((header, body)) = self.block.clone() {
             self.drivechain.verify_bmm(&header).await?;
             self.block = None;

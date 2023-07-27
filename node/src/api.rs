@@ -39,7 +39,8 @@ where
         _request: Request<GetChainHeightRequest>,
     ) -> Result<Response<GetChainHeightResponse>, Status> {
         let txn = self.env.read_txn().map_err(Error::from)?;
-        let block_count = self.archive.get_height(&txn).map_err(Error::from)?.into();
+        let block_count =
+            self.archive.get_height(&txn).map_err(Error::from)?.into();
         return Ok(Response::new(GetChainHeightResponse { block_count }));
     }
 
@@ -61,7 +62,8 @@ where
         request: Request<SubmitTransactionRequest>,
     ) -> Result<Response<SubmitTransactionResponse>, Status> {
         let transaction =
-            bincode::deserialize(&request.into_inner().transaction).map_err(Error::from)?;
+            bincode::deserialize(&request.into_inner().transaction)
+                .map_err(Error::from)?;
         self.submit_transaction(&transaction)
             .await
             .map_err(Error::from)?;
@@ -76,7 +78,8 @@ where
         let (transactions, fee) = self
             .get_transactions(NUM_TRANSACTIONS)
             .map_err(Error::from)?;
-        let serialized_transactions = bincode::serialize(&transactions).map_err(Error::from)?;
+        let serialized_transactions =
+            bincode::serialize(&transactions).map_err(Error::from)?;
         return Ok(Response::new(GetTransactionsResponse {
             transactions: serialized_transactions,
             fee,
@@ -90,7 +93,8 @@ where
         let request = request.into_inner();
         let header: plain_types::Header =
             bincode::deserialize(&request.header).map_err(Error::from)?;
-        let body: Body<A, C> = bincode::deserialize(&request.body).map_err(Error::from)?;
+        let body: Body<A, C> =
+            bincode::deserialize(&request.body).map_err(Error::from)?;
         self.submit_block(&header, &body)
             .await
             .map_err(Error::from)?;
@@ -137,7 +141,8 @@ where
         request: Request<GetUtxosByAddressesRequest>,
     ) -> Result<Response<GetUtxosByAddressesResponse>, Status> {
         let addresses: HashSet<Address> =
-            bincode::deserialize(&request.into_inner().addresses).map_err(Error::from)?;
+            bincode::deserialize(&request.into_inner().addresses)
+                .map_err(Error::from)?;
         let utxos = self
             .get_utxos_by_addresses(&addresses)
             .map_err(Error::from)?;
@@ -150,9 +155,11 @@ where
         request: Request<GetSpentUtxosRequest>,
     ) -> Result<Response<GetSpentUtxosResponse>, Status> {
         let outpoints: Vec<OutPoint> =
-            bincode::deserialize(&request.into_inner().outpoints).map_err(Error::from)?;
+            bincode::deserialize(&request.into_inner().outpoints)
+                .map_err(Error::from)?;
         let spent = self.get_spent_utxos(&outpoints).map_err(Error::from)?;
-        let spent_outpoints = bincode::serialize(&spent).map_err(Error::from)?;
+        let spent_outpoints =
+            bincode::serialize(&spent).map_err(Error::from)?;
         Ok(Response::new(GetSpentUtxosResponse { spent_outpoints }))
     }
 }
