@@ -1,12 +1,12 @@
 use node::node_server::Node;
 use node::*;
+use plain_api::node;
 use plain_types::{Address, Body, GetAddress, GetValue, OutPoint, Verify};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use tonic::{Request, Response, Status};
-use plain_api::node;
 
 #[tonic::async_trait]
 impl<
