@@ -4,8 +4,8 @@ on: [pull_request]
 
 name: Comment Coverage
 
-env:
-  CARGO_TERM_COLOR: always
+#env:
+#  CARGO_TERM_COLOR: always
 
 jobs:
   check-lint-build-stable:
@@ -31,20 +31,21 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v2
 
-      - name: Missing docs warnings (PR)
-        id: missing_docs_warnings_pr
-        run: |
-          cargo -q clippy --message-format=short -- \
-              -Aclippy::all \
-              -Wclippy::missing_errors_doc \
-              -Wclippy::missing_panics_doc \
-              -Wclippy::missing_safety_doc \
-              -Wclippy::missing_docs_in_private_items \
-              -Wmissing_docs \
-              2>&1 \
-          | awk -F"[\` ]" \
-              '/warning: `.+?` \(lib\) generated [0-9]+ warning[s]?/ { print $3 ": " $7 }' \
-          | sort
+      #- name: Missing docs warnings (PR)
+      #  id: missing_docs_warnings_pr
+      #  run: |
+      #    cargo -q clippy --message-format=short -- \
+      #        -Aclippy::all \
+      #        -Wclippy::missing_errors_doc \
+      #        -Wclippy::missing_panics_doc \
+      #        -Wclippy::missing_safety_doc \
+      #        -Wclippy::missing_docs_in_private_items \
+      #        -Wmissing_docs \
+      #        2>&1 \
+      #    | awk -F"[\` ]" \
+      #        '/warning: `.+?` \(lib\) generated [0-9]+ warning[s]?/ { print $3 ": " $7 }' \
+      #    | sort \
+      #    | echo
       
       - name: Checkout target branch
         uses: actions/checkout@v2
@@ -54,20 +55,55 @@ jobs:
       - name: Missing docs warnings (Target)
         id: missing_docs_warnings_target
         run: |
-          cargo -q clippy --message-format=short -- \
-              -Aclippy::all \
-              -Wclippy::missing_errors_doc \
-              -Wclippy::missing_panics_doc \
-              -Wclippy::missing_safety_doc \
-              -Wclippy::missing_docs_in_private_items \
-              -Wmissing_docs \
-              2>&1 \
-          | awk -F"[\` ]" \
-              '/warning: `.+?` \(lib\) generated [0-9]+ warning[s]?/ { print $3 ": " $7 }' \
-          | sort
+          # use a random EOF, as per GitHub security recommendations
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          WARNINGS0=$(\
+            cargo -q clippy --message-format=short -- \
+                -Aclippy::all \
+                -Wclippy::missing_errors_doc \
+                -Wclippy::missing_panics_doc \
+                -Wclippy::missing_safety_doc \
+                -Wclippy::missing_docs_in_private_items \
+                -Wmissing_docs \
+                2>&1)
+          # check that $0 is not getting a previous command output
+          ABCDEF="ABCDEF"
+          AWKSTR='/warning: `.+` \(lib\) generated [0-9]+ warnings?/ { print $3 ": " $7 }'
+          WARNINGS1=$(echo "$WARNINGS0" | awk -F"[\` ]" "$AWKSTR")
+          #WARNINGS="$(\
+          #  cargo -q clippy --message-format=short -- \
+          #      -Aclippy::all \
+          #      -Wclippy::missing_errors_doc \
+          #      -Wclippy::missing_panics_doc \
+          #      -Wclippy::missing_safety_doc \
+          #      -Wclippy::missing_docs_in_private_items \
+          #      -Wmissing_docs \
+          #      2>&1 \
+          #  | awk -F"[\` ]" \
+          #      '/warning: `.+` \(lib\) generated [0-9]+ warnings?/ { print $3 ": " $7 }' \
+          #  | sort)"
+          #echo "TARGET_WARNINGS<<$EOF" >> "$GITHUB_OUTPUT"
+          #echo "$WARNINGS" >> "$GITHUB_OUTPUT"
+          #echo "$EOF" >> "$GITHUB_OUTPUT"
+          #echo "abc"
+          #echo "${WARNINGS}"
+          #echo "$WARNINGS"
+          #WARNINGS="ABCDEF"
+          #echo "${WARNINGS}"
+          #echo "$WARNINGS"
+          # echo "${WARNINGS0}"
+          echo "$AWKSTR"
+          echo "${WARNINGS1}"
+          echo "0000"
+          echo "$WARNINGS0" | awk -F"[\` ]" "${AWKSTR}"
+          echo "0001"
       
       - name: Compare comment coverage
         run: |
+          echo "test abc"
+          echo "${{ env.target_warnings }}"
+          echo "${{ env.TARGET_WARNINGS }}"
+          echo "${{ steps.missing_docs_warnings_target.outputs.TARGET_WARNINGS }}"
           IFS=$'\n' read -rd '' -a missing_docs_warnings_pr_arr <<< "${{steps.missing_docs_warnings_pr.outcome}}"
           IFS=$'\n' read -rd '' -a missing_docs_warnings_target_arr <<< "${{steps.missing_docs_warnings_target.outcome}}"
           for pr_warnings_line in "${missing_docs_warnings_pr_arr[@]}"
